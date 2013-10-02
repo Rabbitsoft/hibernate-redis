@@ -4,6 +4,8 @@ import com.carrotsearch.junitbenchmarks.BenchmarkRule;
 import lombok.extern.slf4j.Slf4j;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.hibernate.cache.redis.strategy.AbstractReadWriteRedisAccessStrategy;
+import org.hibernate.cache.redis.util.HibernateCacheUtil;
 import org.hibernate.cfg.Configuration;
 import org.hibernate.cfg.Environment;
 import org.hibernate.engine.transaction.internal.jdbc.JdbcTransactionFactory;
@@ -146,8 +148,13 @@ public abstract class RedisTest extends BaseCoreFunctionalTestCase {
         }
 
         // check the version value in the cache...
-        SecondLevelCacheStatistics slcs = sessionFactory().getStatistics()
-                .getSecondLevelCacheStatistics(VersionedItem.class.getName());
+        final String regionName = HibernateCacheUtil.getRegionName(sessionFactory(),
+                                                                   VersionedItem.class);
+        SecondLevelCacheStatistics slcs =
+                sessionFactory()
+                        .getStatistics()
+                        .getSecondLevelCacheStatistics(regionName);
+
 
         Map cacheEntries = slcs.getEntries();
         Object entry = cacheEntries.get(item.getId());
@@ -158,7 +165,7 @@ public abstract class RedisTest extends BaseCoreFunctionalTestCase {
 
         boolean isLock = entry.getClass()
                               .getName()
-                              .equals("org.hibernate.cache.redis.strategy.AbstractReadWriteRedisAccessStrategy$Lock");
+                              .equals(AbstractReadWriteRedisAccessStrategy.class.getName() + "$Lock");
         if (isLock) {
             //
         } else {

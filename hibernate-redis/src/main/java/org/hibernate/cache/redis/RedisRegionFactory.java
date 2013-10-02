@@ -64,7 +64,7 @@ public class RedisRegionFactory extends AbstractRedisRegionFactory {
         log.debug("RedisRegionFactory 사용을 중지합니다...");
 
         try {
-            jedisClient.flushDb();
+            // jedisClient.flushDb();
             jedisClient = null;
             log.info("RedisRegionFactory를 중지했습니다.");
         } catch (Exception e) {
@@ -72,4 +72,6 @@ public class RedisRegionFactory extends AbstractRedisRegionFactory {
             throw new CacheException(e);
         }
     }
+
+    private static final long serialVersionUID = 250011183585543116L;
 }

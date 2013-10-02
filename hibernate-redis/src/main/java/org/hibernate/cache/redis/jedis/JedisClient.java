@@ -23,8 +23,10 @@ import org.hibernate.cache.CacheException;
 import org.hibernate.cache.redis.serializer.BinaryRedisSerializer;
 import org.hibernate.cache.redis.serializer.RedisSerializer;
 import org.hibernate.cache.redis.serializer.SerializationTool;
+import org.hibernate.cache.redis.serializer.StringRedisSerializer;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.Pipeline;
 import redis.clients.jedis.Transaction;
 
 import java.util.*;
@@ -53,6 +55,8 @@ public class JedisClient {
     @Getter
     @Setter
     private int expiryInSeconds;
+
+    private StringRedisSerializer regionSerializer = new StringRedisSerializer();
 
     @Getter
     @Setter
@@ -185,8 +189,8 @@ public class JedisClient {
 
         Map<Object, Object> map = new HashMap<Object, Object>();
         for (Map.Entry<byte[], byte[]> entry : rawMap.entrySet()) {
-            Object key = deserializeKey(entry.getKey());
-            Object value = deserializeValue(entry.getValue());
+            final Object key = deserializeKey(entry.getKey());
+            final Object value = deserializeValue(entry.getValue());
             map.put(key, value);
         }
         return map;
@@ -199,7 +203,7 @@ public class JedisClient {
      * @param keys   캐시 키 컬렉션
      * @return 캐시 값의 컬렉션
      */
-    public List<Object> mget(String region, Collection<?> keys) {
+    public List<Object> mget(final String region, final Collection<?> keys) {
         log.trace("영역에서 해당 키에 해당하는 값 들을 조회합니다. region=[{}], keys=[{}]", region, keys);
 
         final byte[] rawRegion = rawRegion(region);
@@ -221,7 +225,7 @@ public class JedisClient {
      * @param key    캐시 키
      * @param value  캐시 값
      */
-    public void set(String region, Object key, Object value) {
+    public void set(final String region, final Object key, final Object value) {
         set(region, key, value, expiryInSeconds, TimeUnit.SECONDS);
     }
 
@@ -233,7 +237,7 @@ public class JedisClient {
      * @param value            캐시 값
      * @param timeoutInSeconds 유효 기간
      */
-    public void set(String region, Object key, Object value, long timeoutInSeconds) {
+    public void set(final String region, final Object key, final Object value, final long timeoutInSeconds) {
         set(region, key, value, timeoutInSeconds, TimeUnit.SECONDS);
     }
 
@@ -246,7 +250,7 @@ public class JedisClient {
      * @param timeout 유효기간
      * @param unit    유효기간 단위
      */
-    public void set(final String region, final Object key, final Object value, long timeout, TimeUnit unit) {
+    public void set(final String region, final Object key, final Object value, final long timeout, final TimeUnit unit) {
         log.trace("항목을 캐싱합니다. region=[{}], key=[{}], value=[{}], timeout=[{}], unit=[{}]",
                   region, key, value, timeout, unit);
 
@@ -408,28 +412,28 @@ public class JedisClient {
      * 키를 이용해 region 값을 직렬화합니다.
      */
     private byte[] rawRegion(String region) {
-        return region.getBytes();
+        return regionSerializer.serialize(region);
     }
 
     /**
      * byte[] 를 key 값으로 역직렬화 합니다
      */
     private Object deserializeKey(byte[] rawKey) {
-        return getKeySerializer().deserialize(rawKey);
+        return keySerializer.deserialize(rawKey);
     }
 
     /**
      * 캐시 값을 byte[]로 직렬화를 수행합니다.
      */
     private byte[] rawValue(Object value) {
-        return getValueSerializer().serialize(value);
+        return valueSerializer.serialize(value);
     }
 
     /**
      * byte[] 를 역직렬화하여 원 객체로 변환합니다.
      */
     private Object deserializeValue(byte[] rawValue) {
-        return getValueSerializer().deserialize(rawValue);
+        return valueSerializer.deserialize(rawValue);
     }
 
     /**
@@ -440,7 +444,9 @@ public class JedisClient {
 
         Jedis jedis = jedisPool.getResource();
         try {
-            jedis.select(database);
+            if (database > 0 && database != jedis.getDB())
+                jedis.select(database);
+
             return callback.execute(jedis);
         } finally {
             jedisPool.returnResource(jedis);
@@ -455,10 +461,31 @@ public class JedisClient {
 
         Jedis jedis = jedisPool.getResource();
         try {
+            if (database > 0 && database != jedis.getDB())
+                jedis.select(database);
+
             Transaction tx = jedis.multi();
-            tx.select(database);
             callback.execute(tx);
             return tx.exec();
+        } finally {
+            jedisPool.returnResource(jedis);
+        }
+    }
+
+    /**
+     * Pipeline 을 이용하여 복수의 작업을 한번에 수행하도록 합니다.
+     *
+     * @param callback Pipeline 을 이용한 작업
+     */
+    private void runWithPipeline(final JedisPipelineCallback callback) {
+        Jedis jedis = jedisPool.getResource();
+        try {
+            if (database > 0 && database != jedis.getDB())
+                jedis.select(database);
+
+            Pipeline pipeline = jedis.pipelined();
+            callback.execute(pipeline);
+            pipeline.sync();
         } finally {
             jedisPool.returnResource(jedis);
         }
