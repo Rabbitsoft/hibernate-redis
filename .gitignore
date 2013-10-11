@@ -1,14 +1,5 @@
-*.class
-*.log
-*.iml
-.idea
-.lucene
-.DS_Store
+.project
 .classpath
-target
-bin
+.settings/*
+target/*
 
-# Package Files #
-# *.jar
-*.war
-*.ear
