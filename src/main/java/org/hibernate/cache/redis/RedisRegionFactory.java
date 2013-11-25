@@ -53,6 +53,8 @@ public class RedisRegionFactory extends AbstractRedisRegionFactory {
 
     @Override
     public void stop() {
+    	super.stop();
+    	
         if (jedisClient == null) { 
         	return;
         }

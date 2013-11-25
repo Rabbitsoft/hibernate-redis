@@ -61,6 +61,8 @@ public class SingletonRedisRegionFactory extends AbstractRedisRegionFactory {
 
 	@Override
 	public void stop() {
+		super.stop();
+		
 		logger.debug("RedisRegionFactory is stopping");
 		try {
 			if (jedisClient != null) {

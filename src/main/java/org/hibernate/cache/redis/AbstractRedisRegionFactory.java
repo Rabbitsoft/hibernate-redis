@@ -61,6 +61,8 @@ abstract class AbstractRedisRegionFactory implements RegionFactory {
     protected final RedisAccessStrategyFactory accessStrategyFactory = new RedisAccessStrategyFactoryImpl();
 
     protected final List<String> regionNames = new ArrayList<String>();
+    
+    protected Thread expirationThread;
 
     public AbstractRedisRegionFactory(Properties props) {
         this.props = props;
@@ -146,9 +148,14 @@ abstract class AbstractRedisRegionFactory implements RegionFactory {
         return new RedisTimestampsRegion(accessStrategyFactory, 
         	JedisTool.createJedisClient(properties), regionName, properties);
     }
-
+    
+	@Override
+	public void stop() {
+		expirationThread.interrupt();
+	}
+	
     public void manageExpiration(final JedisClient client) {
-        new Thread(new Runnable() {
+    	expirationThread = new Thread(new Runnable() {
             @Override
             public void run() {
                 while (true) {
@@ -163,6 +170,7 @@ abstract class AbstractRedisRegionFactory implements RegionFactory {
                     }
                 }
             }
-        }).start();
+        }); 
+    	expirationThread.start();
     }
 }
