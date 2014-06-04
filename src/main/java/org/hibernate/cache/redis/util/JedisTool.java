@@ -55,9 +55,14 @@ public final class JedisTool {
      * Creates {@link org.hibernate.cache.redis.jedis.JedisClient}.
      */
     public static JedisClient createJedisClient(Properties props) {
-        Integer expiryInSeconds = Integer.decode(
-        	props.getProperty("redis.expiryInSeconds", "120"));  // 120 seconds
-        return new JedisClient(createJedisPool(props), expiryInSeconds);
+        Integer expiryInSeconds = Integer.decode(props.getProperty("redis.expiryInSeconds", "120"));  // 120 seconds
+        Integer database = Integer.decode(props.getProperty("redis.database", "0"));
+        
+        JedisClient client = new JedisClient(createJedisPool(props), expiryInSeconds);
+        if (database != 0) {
+        	client.setDatabase(database);
+        }
+        return client;
     }
 
     private static JedisPoolConfig createJedisPoolConfig() {
