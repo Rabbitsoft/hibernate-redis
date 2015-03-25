@@ -42,7 +42,7 @@ public abstract class RedisGeneralDataRegion extends RedisDataRegion implements 
             logger.trace("Returning key=[{}], value=[{}]", key, value);
             return value;
         } catch (Exception e) {
-            return new CacheException(e);
+        	throw new CacheException(e);
         }
     }
 
