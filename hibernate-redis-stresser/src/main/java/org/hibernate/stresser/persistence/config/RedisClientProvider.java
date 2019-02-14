@@ -20,7 +20,7 @@ import org.redisson.Redisson;
 import org.redisson.api.RedissonClient;
 import org.redisson.codec.SnappyCodec;
 import org.redisson.config.Config;
-import org.redisson.config.ElasticacheServersConfig;
+import org.redisson.config.ReplicatedServersConfig;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -42,7 +42,7 @@ public class RedisClientProvider {
   @PostConstruct
   public void initialize() {
     Config config = new Config();
-    ElasticacheServersConfig clusterConfig = config.useElasticacheServers();
+    ReplicatedServersConfig clusterConfig = config.useReplicatedServers();
     clusterConfig.setScanInterval(2000);
     clusterConfig.addNodeAddress(StringUtils.tokenizeToStringArray(redisNodes, ",", true, true));
     config.setCodec(new SnappyCodec());

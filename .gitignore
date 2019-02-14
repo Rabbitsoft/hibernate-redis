@@ -5,6 +5,8 @@
 .lucene
 .DS_Store
 .classpath
+.settings
+.project
 target
 bin
 

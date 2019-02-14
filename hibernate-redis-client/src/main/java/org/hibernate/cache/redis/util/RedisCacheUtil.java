@@ -16,7 +16,11 @@
 
 package org.hibernate.cache.redis.util;
 
+import java.util.concurrent.atomic.AtomicReference;
 import lombok.extern.slf4j.Slf4j;
+import org.hibernate.cache.redis.client.RedisClient;
+import org.redisson.api.RedissonClient;
+import org.redisson.config.Config;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -38,8 +42,9 @@ public final class RedisCacheUtil {
   public static final int DEFAULT_EXPIRY_IN_SECONDS = 120;
 
   public static final String REDISSON_CONFIG = "redisson-config";
+  public static final String REDISSON_JAVA_CONFIG = "redisson-java-config";
   public static final String DEFAULT_REDISSON_CONFIG_PATH = "classpath:conf/redisson.yaml";
-
+  public static final String REDIS_SINGLETON_CLIENT = "hibernate-redis-singleton-client";
 
   private static final Properties cacheProperties = new Properties();
 
@@ -51,6 +56,8 @@ public final class RedisCacheUtil {
     return defaultExpiryInSeconds;
   }
 
+  private static AtomicReference<RedissonClient> redissonClient = null;
+
   /**
    * Load hibernate-redis.properties
    *
@@ -59,23 +66,31 @@ public final class RedisCacheUtil {
    */
   public static Properties loadCacheProperties(final Properties props) {
     cacheProperties.putAll(props);
-    String cachePropsPath = props.getProperty("hibernate.cache.provider_configuration_file_resource_path",
-                                              RESOURCE_URL_PREFIX + "conf/hibernate-redis.properties");
-    InputStream is = null;
-    try {
-      log.debug("Loading cache properties... path={}", cachePropsPath);
-      is = getFileInputStream(cachePropsPath);
-      cacheProperties.load(is);
-      loadDefaultExpiry();
 
-    } catch (Exception e) {
-      log.warn("Fail to load cache properties. path={}", cachePropsPath, e);
-    } finally {
-      if (is != null) {
-        try { is.close(); } catch (Exception ignored) {}
-      }
+    Config config = (Config) props.get(REDISSON_JAVA_CONFIG);
+    if (config != null) {
+      log.debug("Loading redisson config from Java Object in system properties");
+      cacheProperties.put(REDISSON_JAVA_CONFIG, config);
     }
+      String cachePropsPath = props.getProperty("hibernate.cache.provider_configuration_file_resource_path",
+              RESOURCE_URL_PREFIX + "conf/hibernate-redis.properties");
+      InputStream is = null;
+      try {
+        log.debug("Loading cache properties... path={}", cachePropsPath);
+        is = getFileInputStream(cachePropsPath);
+        cacheProperties.load(is);
 
+      } catch (Exception e) {
+        log.warn("Fail to load cache properties. path={}", cachePropsPath, e);
+      } finally {
+        loadDefaultExpiry();
+        if (is != null) {
+          try {
+            is.close();
+          } catch (Exception ignored) {
+          }
+        }
+      }
     return cacheProperties;
   }
 
@@ -160,6 +175,22 @@ public final class RedisCacheUtil {
       log.warn("error occurred in reading properties. key={}", key, ignored);
       return defaultValue;
     }
+  }
+
+  /**
+   * get property value of REDISSION_JAVA_CONFIG
+   * @return property value
+   */
+  public static Config getRedissonJavaConfig() {
+    return (Config) cacheProperties.get(REDISSON_JAVA_CONFIG);
+  }
+
+  public static void saveRedisSingletonClient(RedisClient client) {
+    cacheProperties.put(REDIS_SINGLETON_CLIENT, client);
+  }
+
+  public static RedisClient getRedisSingletonClient() {
+    return (RedisClient) cacheProperties.getOrDefault(REDIS_SINGLETON_CLIENT, null);
   }
 
 }

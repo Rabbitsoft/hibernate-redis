@@ -47,7 +47,7 @@ public class ReadOnlyRedisEntityRegionAccessStrategy
                                  EntityPersister persister,
                                  SessionFactoryImplementor factory,
                                  String tenantIdentifier) {
-    return null;
+    return region.getCacheKeysFactory().createEntityKey(id, persister, factory, tenantIdentifier);
   }
 
   @Override
