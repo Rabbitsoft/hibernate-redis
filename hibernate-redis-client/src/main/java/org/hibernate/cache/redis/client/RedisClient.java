@@ -25,6 +25,7 @@ import org.hibernate.cache.redis.util.RedisCacheUtil;
 import org.redisson.api.RMapCache;
 import org.redisson.api.RScript;
 import org.redisson.api.RedissonClient;
+import org.redisson.client.codec.LongCodec;
 
 import java.util.Collection;
 import java.util.List;
@@ -68,10 +69,11 @@ public class RedisClient {
   }
 
   public long nextTimestamp(final List<Object> keys) {
-    return redisson.getScript().eval(RScript.Mode.READ_WRITE,
-                                     "redis.call('setnx', KEYS[1], ARGV[1]); " +
-                                     "return redis.call('incr', KEYS[1]);",
-                                     RScript.ReturnType.INTEGER, keys, System.currentTimeMillis());
+    return redisson.getScript(new LongCodec())
+        .eval(RScript.Mode.READ_WRITE,
+            "redis.call('setnx', KEYS[1], ARGV[1]); " + 
+            "return redis.call('incr',  KEYS[1]);",
+            RScript.ReturnType.INTEGER, keys, System.currentTimeMillis());
   }
 
   public long dbSize() {
